@@ -74,8 +74,6 @@ export interface GameState {
   toast:          { message: string; type: 'success' | 'error' | 'info' } | null;
 }
 
-export const DEMO_WALLET = '0xdemo0000000000000000000000000000000000001';
-
 const initialState: GameState = {
   screen:         'landing',
   walletAddress:  null,
@@ -222,8 +220,8 @@ export function useGameStore() {
     });
   }, []);
 
-  const connectWallet = useCallback(async (wallet?: string) => {
-    const addr = wallet ?? DEMO_WALLET;
+  const connectWallet = useCallback(async (wallet: string) => {
+    const addr = wallet.toLowerCase();
     set({ loading: true, error: null });
     try {
       const player = await getOrCreatePlayer(addr);
@@ -387,7 +385,7 @@ export function useGameStore() {
     return prize;
   }, [set, refreshPlayer]);
 
-  const purchaseShopItem = useCallback(async (itemSlug: string, priceRitual: number) => {
+  const purchaseShopItem = useCallback(async (itemSlug: string, _priceRitual: number) => {
     const { walletAddress, player } = stateRef.current;
     if (!walletAddress || !player) return false;
     try {

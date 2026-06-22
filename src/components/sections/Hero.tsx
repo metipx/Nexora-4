@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Wallet, ArrowRight, Zap, Trophy, Flame, Sparkles } from 'lucide-react';
+import { Wallet, ArrowRight, Zap, Trophy, Flame, Sparkles, Loader2 } from 'lucide-react';
 import { NexoraWatermark } from '../../design-system/Logo';
 
 interface HeroSectionProps {
   onConnectWallet: () => void;
+  isConnecting?: boolean;
 }
 
 const HERO_STATS = [
@@ -13,7 +14,7 @@ const HERO_STATS = [
   { value: 'S1',      label: 'Season 1 Live',         color: '#00C896' },
 ];
 
-export default function HeroSection({ onConnectWallet }: HeroSectionProps) {
+export default function HeroSection({ onConnectWallet, isConnecting = false }: HeroSectionProps) {
   const [visible, setVisible] = useState(false);
   const orb1Ref = useRef<HTMLDivElement>(null);
   const orb2Ref = useRef<HTMLDivElement>(null);
@@ -162,11 +163,16 @@ export default function HeroSection({ onConnectWallet }: HeroSectionProps) {
         >
           <button
             onClick={onConnectWallet}
+            disabled={isConnecting}
             className="nx-btn nx-btn-primary nx-btn-lg gap-3 min-w-[220px]"
-            style={{ fontSize: '1.0625rem' }}
+            style={{ fontSize: '1.0625rem', opacity: isConnecting ? 0.7 : 1 }}
           >
-            <Wallet size={18} />
-            Connect Wallet
+            {isConnecting ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <Wallet size={18} />
+            )}
+            {isConnecting ? 'Connecting...' : 'Connect Wallet'}
           </button>
           <a
             href="#categories"

@@ -1,6 +1,7 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useGameStore } from './store/useGameStore';
+import { useWallet } from './hooks/useWallet';
 import AppShell from './components/AppShell';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
@@ -20,6 +21,7 @@ import OraclePage from './pages/OraclePage';
 import MentorPage from './pages/MentorPage';
 import WeeklyReportPage from './pages/WeeklyReportPage';
 import LorePage from './pages/LorePage';
+import WrongNetworkOverlay from './components/WrongNetworkOverlay';
 
 type AppScreen =
   | 'dashboard' | 'category_select' | 'challenge_start' | 'playing' | 'complete'
@@ -36,6 +38,7 @@ const pageVariants = {
 };
 
 export default function App() {
+  const wallet = useWallet();
   const {
     state,
     connectWallet,
@@ -67,6 +70,17 @@ export default function App() {
     prevRankRef.current = state.player.rank_tier;
   }
 
+  // Auto-connect wallet to game store when wallet state changes
+  useEffect(() => {
+    if (wallet.status === 'connected' && wallet.address && !state.walletAddress) {
+      connectWallet(wallet.address);
+    }
+    if (wallet.status === 'disconnected' && state.walletAddress) {
+      // Wallet was disconnected externally
+      window.location.reload();
+    }
+  }, [wallet.status, wallet.address, state.walletAddress, connectWallet]);
+
   function handleNavigate(screen: AppScreen) {
     switch (screen) {
       case 'dashboard':        goToDashboard();      break;
@@ -87,12 +101,20 @@ export default function App() {
   }
 
   function handleDisconnect() {
+    wallet.disconnect();
     showToast('Wallet disconnected', 'info');
     window.location.reload();
   }
 
+  // Show landing if no wallet connected or no player data yet
   if (state.screen === 'landing' || !state.player || !state.walletAddress) {
-    return <Landing onConnectWallet={() => connectWallet()} />;
+    return (
+      <Landing
+        walletStatus={wallet.status}
+        walletError={wallet.error}
+        onConnectWallet={() => wallet.connect()}
+      />
+    );
   }
 
   const screen = state.screen as AppScreen;
@@ -269,6 +291,25 @@ export default function App() {
   // Fullscreen screens render without the shell's main padding wrapper
   if (isFullscreen && state.screen === 'playing') {
     return (
+      <>
+        <AppShell
+          player={state.player}
+          walletAddress={state.walletAddress}
+          currentScreen={screen}
+          onNavigate={handleNavigate}
+          onDisconnect={handleDisconnect}
+        >
+          {pageContent}
+        </AppShell>
+        {wallet.status === 'wrong_network' && (
+          <WrongNetworkOverlay onSwitch={wallet.switchToRitual} />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <>
       <AppShell
         player={state.player}
         walletAddress={state.walletAddress}
@@ -276,31 +317,22 @@ export default function App() {
         onNavigate={handleNavigate}
         onDisconnect={handleDisconnect}
       >
-        {pageContent}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={state.screen}
+            initial="initial"
+            animate="enter"
+            exit="exit"
+            variants={pageVariants}
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+          >
+            {pageContent}
+          </motion.div>
+        </AnimatePresence>
       </AppShell>
-    );
-  }
-
-  return (
-    <AppShell
-      player={state.player}
-      walletAddress={state.walletAddress}
-      currentScreen={screen}
-      onNavigate={handleNavigate}
-      onDisconnect={handleDisconnect}
-    >
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={state.screen}
-          initial="initial"
-          animate="enter"
-          exit="exit"
-          variants={pageVariants}
-          transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-        >
-          {pageContent}
-        </motion.div>
-      </AnimatePresence>
-    </AppShell>
+      {wallet.status === 'wrong_network' && (
+        <WrongNetworkOverlay onSwitch={wallet.switchToRitual} />
+      )}
+    </>
   );
 }

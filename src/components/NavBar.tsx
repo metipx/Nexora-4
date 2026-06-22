@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Menu, X, Wallet } from 'lucide-react';
+import { Menu, X, Wallet, Loader2 } from 'lucide-react';
 import { NexoraWordmark } from '../design-system/Logo';
 import { useScrolled } from '../hooks/useLanding';
 
 interface NavBarProps {
   onConnectWallet: () => void;
+  isConnecting?: boolean;
 }
 
 const NAV_LINKS = [
@@ -14,7 +15,7 @@ const NAV_LINKS = [
   { label: 'Shop',        href: '#shop' },
 ];
 
-export default function NavBar({ onConnectWallet }: NavBarProps) {
+export default function NavBar({ onConnectWallet, isConnecting = false }: NavBarProps) {
   const scrolled = useScrolled(40);
   const [open, setOpen] = useState(false);
 
@@ -52,9 +53,18 @@ export default function NavBar({ onConnectWallet }: NavBarProps) {
             <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#00C896' }} />
             <span className="text-xs font-title font-semibold" style={{ color: '#00C896' }}>Live</span>
           </div>
-          <button onClick={onConnectWallet} className="nx-btn nx-btn-primary gap-2">
-            <Wallet size={15} />
-            Connect Wallet
+          <button
+            onClick={onConnectWallet}
+            disabled={isConnecting}
+            className="nx-btn nx-btn-primary gap-2"
+            style={{ opacity: isConnecting ? 0.7 : 1 }}
+          >
+            {isConnecting ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Wallet size={15} />
+            )}
+            {isConnecting ? 'Connecting...' : 'Connect Wallet'}
           </button>
         </div>
 
@@ -92,10 +102,16 @@ export default function NavBar({ onConnectWallet }: NavBarProps) {
             <div className="nx-divider my-2" />
             <button
               onClick={() => { onConnectWallet(); setOpen(false); }}
+              disabled={isConnecting}
               className="nx-btn nx-btn-primary w-full gap-2 justify-center"
+              style={{ opacity: isConnecting ? 0.7 : 1 }}
             >
-              <Wallet size={15} />
-              Connect Wallet
+              {isConnecting ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <Wallet size={15} />
+              )}
+              {isConnecting ? 'Connecting...' : 'Connect Wallet'}
             </button>
           </div>
         </div>

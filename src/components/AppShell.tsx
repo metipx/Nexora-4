@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Trophy, ShoppingBag, User, Award, Settings,
   ChevronRight, Menu, X, Zap, Flame, Crown, LogOut,
   Dices, Sword, BrainCircuit, Eye, BarChart3, BookMarked, Sparkles,
+  Globe,
 } from 'lucide-react';
 import { NexoraMark, NexoraWordmark } from '../design-system/Logo';
 import { Player } from '../lib/supabase';
@@ -217,6 +218,14 @@ export default function AppShell({ player, walletAddress, currentScreen, childre
               style={{ background: 'rgba(28,38,64,0.8)', border: '1px solid rgba(230,237,247,0.08)', color: 'rgba(230,237,247,0.5)' }}
             >
               {abbrev(walletAddress)}
+            </div>
+            <div
+              className="hidden md:flex items-center gap-1 px-2 py-1 rounded-lg text-2xs font-title font-semibold"
+              style={{ background: 'rgba(0,200,150,0.08)', border: '1px solid rgba(0,200,150,0.18)', color: '#33E8B8' }}
+              title="Ritual Testnet"
+            >
+              <Globe size={10} />
+              Ritual
             </div>
           </div>
         </header>
