@@ -4,7 +4,7 @@ import {
   Zap, Flame, Trophy, Crown, Sparkles, Star, TrendingUp, Target,
   Calendar, ChevronRight, Sword, ShoppingBag, Shield, Lock, Award,
   FlaskConical, Clock, Cpu, Calculator, BookOpen, Globe, Lightbulb,
-  Bitcoin, BarChart3, CheckCircle2, User,
+  BarChart3, CheckCircle2, User, Film, Palette, Code2,
 } from 'lucide-react';
 import { CATEGORIES, RANK_TIERS } from '../design-system/tokens';
 import type { Player, ChallengeSession, Achievement } from '../lib/supabase';
@@ -19,17 +19,23 @@ interface DashboardProps {
   onGoToProfile: () => void;
   onGoToAchievements: () => void;
   onGoToSettings: () => void;
+  onGoToDailyChallenge?: () => void;
+  onGoToDailySpin?: () => void;
 }
 
 const CAT_ICONS: Record<string, React.ReactNode> = {
-  science:     <FlaskConical size={20} />,
-  history:     <Clock size={20} />,
-  technology:  <Cpu size={20} />,
-  mathematics: <Calculator size={20} />,
-  literature:  <BookOpen size={20} />,
-  geography:   <Globe size={20} />,
-  logic:       <Lightbulb size={20} />,
-  crypto_web3: <Bitcoin size={20} />,
+  tech_ai:             <Cpu size={20} />,
+  programming:         <Code2 size={20} />,
+  history:             <Clock size={20} />,
+  geography:           <Globe size={20} />,
+  science_astronomy:   <FlaskConical size={20} />,
+  business_economics:  <TrendingUp size={20} />,
+  sports:              <Trophy size={20} />,
+  cinema_entertainment:<Film size={20} />,
+  english:             <BookOpen size={20} />,
+  logic_problem:       <Lightbulb size={20} />,
+  culture_art:         <Palette size={20} />,
+  general_knowledge:   <Zap size={20} />,
 };
 
 const ACHIEVEMENT_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -86,7 +92,7 @@ function Card({ children, index = 0, className = '' }: { children: React.ReactNo
   );
 }
 
-export default function Dashboard({ state, onStartChallenge, onGoToCategorySelect, onGoToLeaderboard, onGoToShop, onGoToProfile, onGoToAchievements }: DashboardProps) {
+export default function Dashboard({ state, onStartChallenge, onGoToCategorySelect, onGoToLeaderboard, onGoToShop, onGoToProfile, onGoToAchievements, onGoToSettings, onGoToDailyChallenge, onGoToDailySpin }: DashboardProps) {
   const { player, mastery, recentSessions, achievements, dailyDone, leaderboard, walletAddress, inventory } = state;
   if (!player) return null;
 
@@ -216,7 +222,7 @@ export default function Dashboard({ state, onStartChallenge, onGoToCategorySelec
 
       {/* Daily challenge + Streak */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <Card index={2}><DailyChallengeCard dailyDone={dailyDone} onStart={() => onStartChallenge('technology', { isDaily: true })} /></Card>
+        <Card index={2}><DailyChallengeCard player={player} dailyDone={dailyDone} onStart={() => onGoToDailyChallenge?.()} /></Card>
         <Card index={3}><StreakCard player={player} /></Card>
       </div>
 
@@ -371,8 +377,15 @@ export default function Dashboard({ state, onStartChallenge, onGoToCategorySelec
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-function DailyChallengeCard({ dailyDone, onStart }: { dailyDone: boolean; onStart: () => void }) {
+function getDailyCategory(player: Player) {
+  const dayIndex = new Date().getDay();
+  const unlocked = CATEGORIES.filter(c => c.unlockLevel <= player.level);
+  return unlocked[dayIndex % unlocked.length] ?? unlocked[0] ?? CATEGORIES[0];
+}
+
+function DailyChallengeCard({ player, dailyDone, onStart }: { player: Player; dailyDone: boolean; onStart: () => void }) {
   const [timeLeft, setTimeLeft] = useState('');
+  const cat = getDailyCategory(player);
   useEffect(() => {
     function tick() {
       const now = new Date(), midnight = new Date(now);
@@ -410,14 +423,34 @@ function DailyChallengeCard({ dailyDone, onStart }: { dailyDone: boolean; onStar
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 text-xs font-title font-bold px-2.5 py-1 rounded-full" style={{ background: 'rgba(255,184,77,0.1)', border: '1px solid rgba(255,184,77,0.25)', color: '#FFD080' }}>
-            +500 XP
+            ×1.5 XP
           </span>
         )}
       </div>
+
+      {/* Daily category preview */}
+      {!dailyDone && (
+        <div
+          className="flex items-center gap-3 p-3 rounded-xl"
+          style={{ background: `${cat.color}10`, border: `1px solid ${cat.color}25` }}
+        >
+          <div
+            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ background: `${cat.color}15`, color: cat.color }}
+          >
+            {CAT_ICONS[cat.id] ?? <Zap size={16} />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-title font-semibold text-xs truncate" style={{ color: cat.color }}>{cat.label}</div>
+            <div className="text-2xs truncate" style={{ color: 'rgba(230,237,247,0.4)' }}>{cat.desc}</div>
+          </div>
+        </div>
+      )}
+
       <p className="text-sm leading-relaxed flex-1" style={{ color: 'rgba(230,237,247,0.5)' }}>
         {dailyDone
           ? "You've completed today's Daily Challenge. Come back tomorrow!"
-          : 'One AI-generated challenge resets every day at midnight UTC. Complete it for bonus XP.'}
+          : `Today's challenge is ${cat.label}. 5 AI-generated questions with a ×1.5 XP bonus and streak rewards!`}
       </p>
       <button
         className="nx-btn w-full gap-2"
@@ -493,9 +526,35 @@ function StreakCard({ player }: { player: Player }) {
           );
         })}
       </div>
+      {/* Streak milestone rewards */}
+      <div className="space-y-2">
+        <div className="text-2xs font-title font-semibold" style={{ color: 'rgba(230,237,247,0.35)' }}>Milestone Rewards</div>
+        <div className="flex gap-2">
+          {[
+            { day: 3,  reward: '+50 XP',    active: player.streak_days >= 3 },
+            { day: 7,  reward: '+100 XP',   active: player.streak_days >= 7 },
+            { day: 14, reward: '+200 XP',   active: player.streak_days >= 14 },
+            { day: 30, reward: '+500 XP',   active: player.streak_days >= 30 },
+          ].map(m => (
+            <div
+              key={m.day}
+              className="flex-1 flex flex-col items-center gap-1 p-2 rounded-xl"
+              style={{
+                background: m.active ? 'rgba(0,200,150,0.1)' : 'rgba(11,16,32,0.6)',
+                border: m.active ? '1px solid rgba(0,200,150,0.25)' : '1px solid rgba(230,237,247,0.06)',
+              }}
+            >
+              <span className="text-2xs font-title font-bold" style={{ color: m.active ? '#33E8B8' : 'rgba(230,237,247,0.25)' }}>{m.day}d</span>
+              <span className="text-2xs" style={{ color: m.active ? '#33E8B8' : 'rgba(230,237,247,0.3)' }}>{m.reward}</span>
+              {m.active && <CheckCircle2 size={10} style={{ color: '#33E8B8' }} />}
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="flex items-center gap-2">
         <TrendingUp size={13} style={{ color: '#33E8B8' }} />
-        <span className="text-xs" style={{ color: 'rgba(230,237,247,0.4)' }}>Multiplier activates at 7, 14, 21, 30 days</span>
+        <span className="text-xs" style={{ color: 'rgba(230,237,247,0.4)' }}>Streak bonus: +10% XP per day, max +50%</span>
       </div>
     </div>
   );

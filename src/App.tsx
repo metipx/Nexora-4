@@ -15,6 +15,7 @@ import ProfilePage from './pages/ProfilePage';
 import AchievementsPage from './pages/AchievementsPage';
 import SettingsPage from './pages/SettingsPage';
 import DailySpinPage from './pages/DailySpinPage';
+import DailyChallengePage from './pages/DailyChallengePage';
 import PremiumLeaguePage from './pages/PremiumLeaguePage';
 import BossChallengePage from './pages/BossChallengePage';
 import OraclePage from './pages/OraclePage';
@@ -23,13 +24,7 @@ import WeeklyReportPage from './pages/WeeklyReportPage';
 import LorePage from './pages/LorePage';
 import WrongNetworkOverlay from './components/WrongNetworkOverlay';
 
-type AppScreen =
-  | 'dashboard' | 'category_select' | 'challenge_start' | 'playing' | 'complete'
-  | 'leaderboard' | 'daily_spin' | 'shop' | 'premium_league' | 'boss_challenge'
-  | 'profile' | 'achievements' | 'settings'
-  | 'oracle' | 'mentor' | 'weekly_report' | 'lore';
-
-const FULLSCREEN_SCREENS: AppScreen[] = ['playing'];
+const FULLSCREEN_SCREENS = ['playing'];
 
 const pageVariants = {
   initial: { opacity: 0, y: 8 },
@@ -43,6 +38,7 @@ export default function App() {
     state,
     connectWallet,
     startChallenge,
+    startDailyChallenge,
     beginPlaying,
     submitAnswer,
     nextQuestion,
@@ -62,6 +58,8 @@ export default function App() {
     goToLore,
     showToast,
     purchaseShopItem,
+    handleSpin,
+    refreshPlayer,
   } = useGameStore();
 
   const prevRankRef = useRef<string>(state.player?.rank_tier ?? 'bronze');
@@ -76,12 +74,11 @@ export default function App() {
       connectWallet(wallet.address);
     }
     if (wallet.status === 'disconnected' && state.walletAddress) {
-      // Wallet was disconnected externally
       window.location.reload();
     }
   }, [wallet.status, wallet.address, state.walletAddress, connectWallet]);
 
-  function handleNavigate(screen: AppScreen) {
+  function handleNavigate(screen: string) {
     switch (screen) {
       case 'dashboard':        goToDashboard();      break;
       case 'category_select':  goToCategorySelect();  break;
@@ -91,6 +88,7 @@ export default function App() {
       case 'achievements':     goToAchievements();    break;
       case 'settings':         goToSettings();        break;
       case 'daily_spin':       goToDailySpin();       break;
+      case 'daily_challenge':  startDailyChallenge(); break;
       case 'premium_league':   goToPremiumLeague();   break;
       case 'boss_challenge':   goToBossChallenge();   break;
       case 'oracle':           goToOracle();          break;
@@ -117,7 +115,7 @@ export default function App() {
     );
   }
 
-  const screen = state.screen as AppScreen;
+  const screen = state.screen;
   const isFullscreen = FULLSCREEN_SCREENS.includes(screen);
 
   const pageContent = (() => {
@@ -133,6 +131,8 @@ export default function App() {
             onGoToProfile={goToProfile}
             onGoToAchievements={goToAchievements}
             onGoToSettings={goToSettings}
+            onGoToDailyChallenge={startDailyChallenge}
+            onGoToDailySpin={goToDailySpin}
           />
         );
 
@@ -156,7 +156,7 @@ export default function App() {
             isDaily={state.isDaily}
             totalQ={state.totalQ}
             onBegin={beginPlaying}
-            onBack={goToCategorySelect}
+            onBack={goToDashboard}
           />
         );
 
@@ -197,8 +197,26 @@ export default function App() {
             isBoss={state.isBoss}
             isDaily={state.isDaily}
             prevRankTier={prevRankRef.current}
+            leveledUp={state.leveledUp}
+            rankUp={state.rankUp}
+            newRankTier={state.newRankTier}
+            streakContinued={state.streakContinued}
+            masteryUp={state.masteryUp}
+            newMasteryLevel={state.newMasteryLevel}
             onPlayAgain={() => startChallenge(state.categoryId!)}
             onDashboard={goToDashboard}
+          />
+        );
+
+      case 'daily_challenge':
+        return (
+          <DailyChallengePage
+            player={state.player!}
+            onBack={goToDashboard}
+            onComplete={(_result) => {
+              refreshPlayer();
+              goToDashboard();
+            }}
           />
         );
 
@@ -254,7 +272,16 @@ export default function App() {
         );
 
       case 'daily_spin':
-        return <DailySpinPage player={state.player!} onBack={goToDashboard} />;
+        return (
+          <DailySpinPage
+            player={state.player!}
+            onBack={goToDashboard}
+            onSpinComplete={async () => {
+              await handleSpin();
+              await refreshPlayer();
+            }}
+          />
+        );
 
       case 'premium_league':
         return <PremiumLeaguePage player={state.player!} onBack={goToDashboard} />;
@@ -275,16 +302,20 @@ export default function App() {
         return <LorePage player={state.player!} onBack={goToDashboard} />;
 
       default:
-        return <Dashboard
-          state={state}
-          onStartChallenge={startChallenge}
-          onGoToCategorySelect={goToCategorySelect}
-          onGoToLeaderboard={goToLeaderboard}
-          onGoToShop={goToShop}
-          onGoToProfile={goToProfile}
-          onGoToAchievements={goToAchievements}
-          onGoToSettings={goToSettings}
-        />;
+        return (
+          <Dashboard
+            state={state}
+            onStartChallenge={startChallenge}
+            onGoToCategorySelect={goToCategorySelect}
+            onGoToLeaderboard={goToLeaderboard}
+            onGoToShop={goToShop}
+            onGoToProfile={goToProfile}
+            onGoToAchievements={goToAchievements}
+            onGoToSettings={goToSettings}
+            onGoToDailyChallenge={startDailyChallenge}
+            onGoToDailySpin={goToDailySpin}
+          />
+        );
     }
   })();
 

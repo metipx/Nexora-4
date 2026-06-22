@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Zap, Target, CheckCircle2, XCircle, RotateCcw, LayoutDashboard, ChevronRight, Sword, Star, Flame } from 'lucide-react';
+import { Trophy, Zap, Target, CheckCircle2, XCircle, RotateCcw, LayoutDashboard, ChevronRight, Sword, Star, Flame, TrendingUp, Award } from 'lucide-react';
 import { CATEGORIES, RANK_TIERS } from '../../design-system/tokens';
 import { Player } from '../../lib/supabase';
+import { xpInCurrentLevel, xpForNextLevel } from '../../lib/supabase';
 
 interface Props {
   player: Player;
@@ -13,15 +14,56 @@ interface Props {
   isBoss: boolean;
   isDaily: boolean;
   prevRankTier: string;
+  leveledUp?: boolean;
+  rankUp?: boolean;
+  newRankTier?: string | null;
+  streakContinued?: boolean;
+  masteryUp?: boolean;
+  newMasteryLevel?: number;
   onPlayAgain: () => void;
   onDashboard: () => void;
 }
 
 function rankInfo(tier: string) { return RANK_TIERS.find(r => r.id === tier) ?? RANK_TIERS[0]; }
 
-export default function ChallengeComplete({ player, categoryId, totalQ, sessionCorrect, sessionScore, isBoss, isDaily, prevRankTier, onPlayAgain, onDashboard }: Props) {
+export default function ChallengeComplete({
+  player, categoryId, totalQ, sessionCorrect, sessionScore, isBoss, isDaily,
+  prevRankTier, leveledUp = false, rankUp = false, newRankTier = null,
+  streakContinued = false, masteryUp = false, newMasteryLevel = 0,
+  onPlayAgain, onDashboard,
+}: Props) {
   const [visible, setVisible] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setVisible(true), 80); return () => clearTimeout(t); }, []);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [showRankUp, setShowRankUp] = useState(false);
+  const [showStreak, setShowStreak] = useState(false);
+  const [showMastery, setShowMastery] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), 80);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (leveledUp) { const t = setTimeout(() => setShowLevelUp(true), 800); return () => clearTimeout(t); }
+  }, [leveledUp]);
+
+  useEffect(() => {
+    if (rankUp) { const t = setTimeout(() => setShowRankUp(true), leveledUp ? 2000 : 800); return () => clearTimeout(t); }
+  }, [rankUp, leveledUp]);
+
+  useEffect(() => {
+    if (streakContinued && player.streak_days >= 3) {
+      const t = setTimeout(() => setShowStreak(true), (leveledUp ? 2000 : 0) + (rankUp ? 1500 : 0) + 800);
+      return () => clearTimeout(t);
+    }
+  }, [streakContinued, player.streak_days, leveledUp, rankUp]);
+
+  useEffect(() => {
+    if (masteryUp) {
+      const t = setTimeout(() => setShowMastery(true), (leveledUp ? 2000 : 0) + (rankUp ? 1500 : 0) + (streakContinued ? 1200 : 0) + 800);
+      return () => clearTimeout(t);
+    }
+  }, [masteryUp, leveledUp, rankUp, streakContinued]);
 
   const cat    = CATEGORIES.find(c => c.id === categoryId);
   const rank   = rankInfo(player.rank_tier);
@@ -37,6 +79,10 @@ export default function ChallengeComplete({ player, categoryId, totalQ, sessionC
     ? { label: 'Fair',           color: '#FFB84D' }
     : { label: 'Keep Practicing', color: '#FF7A50' };
   const rankChanged = prevRankTier !== player.rank_tier;
+
+  const xpInLevel = xpInCurrentLevel(player.total_xp);
+  const xpNeeded  = xpForNextLevel(player.total_xp);
+  const xpPct     = xpNeeded > 0 ? Math.round((xpInLevel / xpNeeded) * 100) : 100;
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -140,6 +186,27 @@ export default function ChallengeComplete({ player, categoryId, totalQ, sessionC
             ))}
           </motion.div>
 
+          {/* XP progress bar */}
+          <motion.div
+            variants={itemVariants}
+            className="rounded-2xl p-4 space-y-2"
+            style={{ background: 'linear-gradient(145deg, rgba(28,38,64,0.9), rgba(20,27,45,0.95))', border: '1px solid rgba(230,237,247,0.07)' }}
+          >
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-title font-semibold" style={{ color: '#E6EDF7' }}>Level {player.level}</span>
+              <span style={{ color: 'rgba(230,237,247,0.4)' }}>{xpInLevel.toLocaleString()} / {xpNeeded.toLocaleString()} XP</span>
+            </div>
+            <div className="rounded-full overflow-hidden" style={{ height: '6px', background: 'rgba(11,16,32,0.8)' }}>
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${xpPct}%` }}
+                transition={{ duration: 1.2, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                className="h-full rounded-full"
+                style={{ background: 'linear-gradient(90deg, #7C5CFC, #9B81FF)' }}
+              />
+            </div>
+          </motion.div>
+
           {/* Rank card */}
           <motion.div
             variants={itemVariants}
@@ -178,6 +245,114 @@ export default function ChallengeComplete({ player, categoryId, totalQ, sessionC
                   <div className="text-xs" style={{ color: 'rgba(230,237,247,0.45)' }}>
                     {rankInfo(prevRankTier).label} <ChevronRight size={10} className="inline" /> {rank.label}
                   </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Level up celebration */}
+          <AnimatePresence>
+            {showLevelUp && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="rounded-2xl p-5 text-center relative overflow-hidden"
+                style={{ background: 'rgba(124,92,252,0.12)', border: '1px solid rgba(124,92,252,0.3)', boxShadow: '0 0 40px rgba(124,92,252,0.15)' }}
+              >
+                <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at center, rgba(124,92,252,0.1), transparent 70%)' }} />
+                <motion.div
+                  animate={{ rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 0.6, repeat: 2 }}
+                  className="w-12 h-12 rounded-2xl mx-auto mb-2 flex items-center justify-center relative z-10"
+                  style={{ background: 'rgba(124,92,252,0.2)', border: '1px solid rgba(124,92,252,0.4)', color: '#9B81FF' }}
+                >
+                  <TrendingUp size={24} />
+                </motion.div>
+                <div className="font-title font-extrabold text-lg relative z-10" style={{ color: '#9B81FF' }}>Level Up!</div>
+                <div className="text-sm relative z-10" style={{ color: 'rgba(230,237,247,0.5)' }}>You reached Level {player.level}</div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Rank up celebration */}
+          <AnimatePresence>
+            {showRankUp && newRankTier && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="rounded-2xl p-5 text-center relative overflow-hidden"
+                style={{ background: `${rankInfo(newRankTier).color}12`, border: `1px solid ${rankInfo(newRankTier).color}30`, boxShadow: `0 0 40px ${rankInfo(newRankTier).color}15` }}
+              >
+                <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse at center, ${rankInfo(newRankTier).color}10, transparent 70%)` }} />
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 0.5, repeat: 2 }}
+                  className="w-12 h-12 rounded-2xl mx-auto mb-2 flex items-center justify-center relative z-10"
+                  style={{ background: `${rankInfo(newRankTier).color}15`, border: `1px solid ${rankInfo(newRankTier).color}35`, color: rankInfo(newRankTier).color }}
+                >
+                  <Award size={24} />
+                </motion.div>
+                <div className="font-title font-extrabold text-lg relative z-10" style={{ color: rankInfo(newRankTier).color }}>Rank Up!</div>
+                <div className="text-sm relative z-10" style={{ color: 'rgba(230,237,247,0.5)' }}>
+                  {rankInfo(prevRankTier).label} <ChevronRight size={12} className="inline" /> {rankInfo(newRankTier).label}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Streak celebration */}
+          <AnimatePresence>
+            {showStreak && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="rounded-2xl p-5 text-center relative overflow-hidden"
+                style={{ background: 'rgba(255,184,77,0.12)', border: '1px solid rgba(255,184,77,0.3)', boxShadow: '0 0 40px rgba(255,184,77,0.15)' }}
+              >
+                <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at center, rgba(255,184,77,0.1), transparent 70%)' }} />
+                <motion.div
+                  animate={{ rotate: [0, -5, 5, 0] }}
+                  transition={{ duration: 0.4, repeat: 3 }}
+                  className="w-12 h-12 rounded-2xl mx-auto mb-2 flex items-center justify-center relative z-10"
+                  style={{ background: 'rgba(255,184,77,0.15)', border: '1px solid rgba(255,184,77,0.35)', color: '#FFB84D' }}
+                >
+                  <Flame size={24} />
+                </motion.div>
+                <div className="font-title font-extrabold text-lg relative z-10" style={{ color: '#FFB84D' }}>Streak Alive!</div>
+                <div className="text-sm relative z-10" style={{ color: 'rgba(230,237,247,0.5)' }}>{player.streak_days} day streak</div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Mastery celebration */}
+          <AnimatePresence>
+            {showMastery && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="rounded-2xl p-5 text-center relative overflow-hidden"
+                style={{ background: `${cat?.color ?? '#9B81FF'}12`, border: `1px solid ${cat?.color ?? '#9B81FF'}30`, boxShadow: `0 0 40px ${cat?.color ?? '#9B81FF'}15` }}
+              >
+                <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse at center, ${cat?.color ?? '#9B81FF'}10, transparent 70%)` }} />
+                <motion.div
+                  animate={{ scale: [1, 1.15, 1] }}
+                  transition={{ duration: 0.5, repeat: 2 }}
+                  className="w-12 h-12 rounded-2xl mx-auto mb-2 flex items-center justify-center relative z-10"
+                  style={{ background: `${cat?.color ?? '#9B81FF'}15`, border: `1px solid ${cat?.color ?? '#9B81FF'}35`, color: cat?.color ?? '#9B81FF' }}
+                >
+                  <Star size={24} />
+                </motion.div>
+                <div className="font-title font-extrabold text-lg relative z-10" style={{ color: cat?.color ?? '#9B81FF' }}>Mastery Up!</div>
+                <div className="text-sm relative z-10" style={{ color: 'rgba(230,237,247,0.5)' }}>
+                  {cat?.label} · Mastery Level {newMasteryLevel}
                 </div>
               </motion.div>
             )}
